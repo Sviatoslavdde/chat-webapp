@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Chat Roulette Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #ffffff);
+            --text-color: var(--tg-theme-text-color, #222222);
+            --hint-color: var(--tg-theme-hint-color, #888888);
+            --btn-color: var(--tg-theme-button-color, #2481cc);
+            --btn-text: var(--tg-theme-button-text-color, #ffffff);
+            --sec-bg: var(--tg-theme-secondary-bg-color, #f4f4f5);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h2 { margin: 0 0 5px 0; font-size: 20px; }
+        .header p { margin: 0; color: var(--hint-color); font-size: 14px; }
+
+        .tabs {
+            display: flex;
+            background: var(--sec-bg);
+            padding: 4px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: transparent;
+            color: var(--text-color);
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+
+        .tab-btn.active {
+            background: var(--bg-color);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .card {
+            background: var(--sec-bg);
+            padding: 16px;
+            border-radius: 14px;
+            margin-bottom: 14px;
+            text-align: center;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            background: var(--btn-color);
+            color: var(--btn-text);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-danger { background: #e53935; color: #fff; }
+        .btn-secondary { background: #757575; color: #fff; }
+
+        .lang-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .lang-item {
+            background: var(--bg-color);
+            padding: 12px;
+            border-radius: 10px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+
+        .lang-item.selected {
+            border-color: var(--btn-color);
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .stat-box {
+            background: var(--bg-color);
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-box .val { font-size: 20px; font-weight: bold; color: var(--btn-color); }
+        .stat-box .lbl { font-size: 12px; color: var(--hint-color); margin-top: 4px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2 id="app-title">Chat Roulette</h2>
+        <p id="app-subtitle">Управління чатом та профілем</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('main')" id="tab-main">🏠 Головна</button>
+        <button class="tab-btn" onclick="switchTab('settings')" id="tab-settings">⚙️ Мова</button>
+        <button class="tab-btn" id="tab-admin" onclick="switchTab('admin')" style="display:none;">👑 Адмінка</button>
+    </div>
+
+    <!-- Вкладка Головна -->
+    <div id="content-main" class="tab-content active">
+        <div class="card">
+            <h3 id="status-title">Статус чату</h3>
+            <p id="status-desc" style="color: var(--hint-color);">Натисніть кнопку нижче для пошуку</p>
+        </div>
+
+        <button class="btn" onclick="sendAction('start_search')" id="btn-search">🔍 Шукати співрозмовника</button>
+        <button class="btn btn-danger" onclick="sendAction('stop_chat')" id="btn-stop">✋ Завершити розмову</button>
+        <button class="btn btn-secondary" onclick="sendAction('back_to_chat')" id="btn-back">💬 Повернутися в чат</button>
+    </div>
+
+    <!-- Вкладка Налаштування -->
+    <div id="content-settings" class="tab-content">
+        <div class="card">
+            <h3 id="lang-title">Оберіть мову / країну</h3>
+            <div class="lang-grid" id="lang-container"></div>
+        </div>
+    </div>
+
+    <!-- Вкладка Адмінка -->
+    <div id="content-admin" class="tab-content">
+        <div class="card">
+            <h3>📊 Панель управління</h3>
+            <div class="stat-grid">
+                <div class="stat-box"><div class="val" id="st-users">--</div><div class="lbl">Юзерів</div></div>
+                <div class="stat-box"><div class="val" id="st-chats">--</div><div class="lbl">Активні чати</div></div>
+            </div>
+            <button class="btn" onclick="sendAction('admin_active_chats')">💬 Активні чати</button>
+            <button class="btn btn-secondary" onclick="sendAction('admin_all_chats')">📜 Історія чатів</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        const ADMIN_IDS = [2115091163, 9083639938];
+
+        const I18N = {
+            uk: {
+                title: "Чат Рулетка", sub: "Керування профілем та чатом",
+                t_main: "🏠 Головна", t_set: "⚙️ Мова", t_adm: "👑 Адмінка",
+                st_title: "Статус чату", st_idle: "Натисніть кнопку нижче для пошуку",
+                b_search: "🔍 Шукати співрозмовника", b_stop: "✋ Завершити розмову", b_back: "💬 Повернутися в чат",
+                l_title: "Оберіть мову / країну профілю"
+            },
+            en: {
+                title: "Chat Roulette", sub: "Profile & Chat Control",
+                t_main: "🏠 Main", t_set: "⚙️ Language", t_adm: "👑 Admin",
+                st_title: "Chat Status", st_idle: "Press the button below to start search",
+                b_search: "🔍 Find Partner", b_stop: "✋ End Chat", b_back: "💬 Back to Active Chat",
+                l_title: "Select Profile Language / Country"
+            },
+            de: {
+                title: "Chat Roulette", sub: "Profil & Chat-Steuerung",
+                t_main: "🏠 Haupt", t_set: "⚙️ Sprache", t_adm: "👑 Admin",
+                st_title: "Chat-Status", st_idle: "Drücken Sie die Taste unten",
+                b_search: "🔍 Partner suchen", b_stop: "✋ Chat beenden", b_back: "💬 Zurück zum Chat",
+                l_title: "Sprache / Land auswählen"
+            },
+            pl: {
+                title: "Czat Ruletka", sub: "Zarządzanie profilem i czatem",
+                t_main: "🏠 Główna", t_set: "⚙️ Język", t_adm: "👑 Admin",
+                st_title: "Status czatu", st_idle: "Naciśnij przycisk poniżej",
+                b_search: "🔍 Szukaj rozmówcy", b_stop: "✋ Zakończ rozmowę", b_back: "💬 Powrót do czatu",
+                l_title: "Wybierz język / kraj"
+            },
+            es: {
+                title: "Chat Ruleta", sub: "Control de Perfil y Chat",
+                t_main: "🏠 Principal", t_set: "⚙️ Idioma", t_adm: "👑 Admin",
+                st_title: "Estado del Chat", st_idle: "Presiona el botón de abajo",
+                b_search: "🔍 Buscar Pareja", b_stop: "✋ Terminar Chat", b_back: "💬 Volver al Chat",
+                l_title: "Selecciona tu Idioma / País"
+            },
+            fr: {
+                title: "Roulette Chat", sub: "Gestion du profil et du chat",
+                t_main: "🏠 Accueil", t_set: "⚙️ Langue", t_adm: "👑 Admin",
+                st_title: "Statut du Chat", st_idle: "Appuyez sur le bouton ci-dessous",
+                b_search: "🔍 Chercher Partenaire", b_stop: "✋ Terminer Discussion", b_back: "💬 Retour au Chat",
+                l_title: "Choisissez votre langue / pays"
+            }
+        };
+
+        const LANGS = [
+            { code: 'uk', flag: '🇺🇦', name: 'Українська' },
+            { code: 'en', flag: '🇬🇧', name: 'English' },
+            { code: 'de', flag: '🇩🇪', name: 'Deutsch' },
+            { code: 'pl', flag: '🇵🇱', name: 'Polski' },
+            { code: 'es', flag: '🇪🇸', name: 'Español' },
+            { code: 'fr', flag: '🇫🇷', name: 'Français' }
+        ];
+
+        let currentLang = 'uk';
+        const userId = tg.initDataUnsafe?.user?.id;
+
+        function init() {
+            const tgLang = tg.initDataUnsafe?.user?.language_code || 'uk';
+            if (I18N[tgLang]) currentLang = tgLang;
+
+            if (userId && ADMIN_IDS.includes(userId)) {
+                document.getElementById('tab-admin').style.display = 'block';
+            }
+
+            renderLangs();
+            applyLanguage(currentLang);
+        }
+
+        function renderLangs() {
+            const container = document.getElementById('lang-container');
+            container.innerHTML = '';
+            LANGS.forEach(l => {
+                const item = document.createElement('div');
+                item.className = `lang-item ${l.code === currentLang ? 'selected' : ''}`;
+                item.innerHTML = `<span>${l.flag}</span> <span>${l.name}</span>`;
+                item.onclick = () => selectLang(l.code);
+                container.appendChild(item);
+            });
+        }
+
+        function selectLang(code) {
+            currentLang = code;
+            renderLangs();
+            applyLanguage(code);
+            sendAction('set_lang', { lang: code });
+        }
+
+        function applyLanguage(lang) {
+            const t = I18N[lang] || I18N.uk;
+            document.getElementById('app-title').innerText = t.title;
+            document.getElementById('app-subtitle').innerText = t.sub;
+            document.getElementById('tab-main').innerText = t.t_main;
+            document.getElementById('tab-settings').innerText = t.t_set;
+            document.getElementById('tab-admin').innerText = t.t_adm;
+            document.getElementById('status-title').innerText = t.st_title;
+            document.getElementById('status-desc').innerText = t.st_idle;
+            document.getElementById('btn-search').innerText = t.b_search;
+            document.getElementById('btn-stop').innerText = t.b_stop;
+            document.getElementById('btn-back').innerText = t.b_back;
+            document.getElementById('lang-title').innerText = t.l_title;
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            document.getElementById(`content-${tab}`).classList.add('active');
+        }
+
+        function sendAction(action, extra = {}) {
+            const payload = JSON.stringify({ action: action, ...extra });
+            tg.sendData(payload);
+            tg.close();
+        }
+
+        init();
+    </script>
+</body>
+</html>
